@@ -18,18 +18,20 @@ class Model(tf.keras.Model):
     def __init__(self):
         super(Model, self).__init__()
         #64 32
-        self.input_conv1 = Conv2D(filters = 32,kernel_size=[1,1],activation=None,padding="same")
+        
+        network_size = 20
+        
+        self.input_conv1 = Conv2D(filters = network_size,kernel_size=[1,1],activation=None,padding="same")
         
         self.convs1 = []
         self.convs2 = []
-        
         self.residual_count = 5
         
         for i in range(self.residual_count):
-            self.convs1.append(Conv2D(filters = 32,kernel_size=[5,5],activation=None,padding="valid"))
-            self.convs2.append(Conv2D(filters = 32,kernel_size=[5,5],activation=None,padding="valid"))
+            self.convs1.append(Conv2D(filters = network_size,kernel_size=[5,5],activation=None,padding="valid"))
+            self.convs2.append(Conv2D(filters = network_size,kernel_size=[5,5],activation=None,padding="valid"))
         
-        self.outconv1 = Conv2D(filters = 32,kernel_size=[3,3],activation=tf.nn.elu,padding="same")
+        self.outconv1 = Conv2D(filters = network_size,kernel_size=[3,3],activation=tf.nn.elu,padding="same")
         
         #self.outconv2 = Conv2D(filters = 24,kernel_size=[7,7],activation=tf.nn.elu,padding="same")
 	
