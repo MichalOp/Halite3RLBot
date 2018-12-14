@@ -322,7 +322,8 @@ while True:
     selected_ship = None
     #print(len(dropoffs))
     if len(me.get_ships()) < len(dropoffs)*15:
-        try_spawn = True
+        if game.turn_number < 250:
+            try_spawn = True
     else:
         selected_ship = random.choice(me.get_ships())
         
