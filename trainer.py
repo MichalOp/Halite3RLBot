@@ -135,7 +135,7 @@ def run_training():
             
             policy_loss_counter+= float(policy_loss)
             value_loss_counter+= float(value_loss)
-            entropy_loss_counter+= float(value_loss)
+            entropy_loss_counter+= float(entropy_loss)
             
             new_t = time()
             opt+= new_t-old_t
