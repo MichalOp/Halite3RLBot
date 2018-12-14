@@ -32,12 +32,14 @@ def generate(model, queues, trajectories, workers_list):
         sleep(1.0)
     
     
-def train(model, trajectories, reward_queue, global_step, train_func, tf):
+def train(model, trajectories, reward_queue, train_func, tf, kills_matter):
+    
+    old_trajectories = [[],[],[]]
+    
+    global_step = tf.train.get_or_create_global_step()
     
     summary_writer = tf.contrib.summary.create_file_writer(
         "training", flush_millis=10000)
-    
-    old_trajectories = [[],[],[]]
     
     while True:
         
@@ -151,6 +153,9 @@ def train(model, trajectories, reward_queue, global_step, train_func, tf):
             
         model.save_weights('./weights/halite_model')
         global_step.assign_add(1)
+        print("-------------------------------------------------------------------")
+        print(global_step)
+        print("-------------------------------------------------------------------")
         #print("time: "+str(time()-old_t))
         print("preparation: "+str(prep))
         print("optimizing: "+str(opt))
@@ -181,23 +186,19 @@ def run_training():
     
     tf.enable_eager_execution()
     
-    global_step = tf.train.get_or_create_global_step()
-    
     model = Model()
     model.load_weights('./weights/halite_model')
     
     trajectories = []
     
     g = lambda:generate(model,queues, trajectories, workers_list)
-    t = lambda:train(model, trajectories, reward_queue, global_step, train_func,tf)
+    t = lambda:train(model, trajectories, reward_queue, train_func,tf, kills_matter)
     
     t1 = Thread(target = g)
     t2 = Thread(target = t)
     
     t1.start()
     t2.start()
-    
-    
         
             #steps+=1
 if __name__ == "__main__":
