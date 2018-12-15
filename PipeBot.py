@@ -33,12 +33,12 @@ pipe_id = sys.argv[1]
 pipe_in = open("/tmp/halite_commands"+pipe_id, 'r')
 pipe_out = open("/tmp/halite_data"+pipe_id, 'w')
 
-bx = 32
-by = 32
-
 move_array = [(0,0),(1,0),(0,1),(-1,0),(0,-1)]
 
 game = hlt.Game()
+
+bx = game.game_map.width
+by = game.game_map.height
 
 def to_tuple(p):
     return (p.x%bx,p.y%by)
@@ -247,9 +247,6 @@ while True:
     # You extract player metadata and the updated map metadata here for convenience.
     me = game.me
     game_map = game.game_map
-    
-    bx = game_map.width
-    by = game_map.height
     
     shipdict = {}
     
