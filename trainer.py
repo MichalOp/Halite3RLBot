@@ -89,7 +89,7 @@ def train(model, trajectories, reward_queue, train_func, tf, kills_matter):
         shuffle(cut_batches)
                 
         for batch in cut_batches:
-            if len(batch) == 0:
+            if not len(batch) == batchsize:
                 continue
             #(board,ship_positions,ship_actions,ship_probabilities,ship_advantages,ship_values)
             boards = []
