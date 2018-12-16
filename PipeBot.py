@@ -61,7 +61,7 @@ ships_last_cargo = {}
 
 try_spawn = False
 
-def movement_solver(ships_and_targets, game_map, block_fields):
+def movement_solver(ships_and_targets, game_map, block_fields, the_end = False, bases = None):
     board = [[[-1,0,0,False,[]] for x in range(game_map.width)]for y in range(game_map.height)]
     
     ship_dict = {}
@@ -74,8 +74,6 @@ def movement_solver(ships_and_targets, game_map, block_fields):
         board[x][y][3] = True
     
     to_consider = set()
-    
-    hopeful_positions = []
     
     for ship, target_preference in ships_and_targets:
         x,y= to_tuple(ship.position)
@@ -99,6 +97,11 @@ def movement_solver(ships_and_targets, game_map, block_fields):
                 board[(x+mx)%bx][(y+my)%by][4].append((x,y))
         
     i = 0
+    
+    if the_end:
+        for x,y in bases:
+            board[x][y][3]=False
+            board[x][y][0] = -1
     
     endpoints = set()
     
@@ -143,24 +146,29 @@ def movement_solver(ships_and_targets, game_map, block_fields):
         i = 0
         index = 0
         winning_string = []
-        for s in strings:
-            if len(s)>max_len:
-                max_len = len(s)
-                index = i
-                winning_string = s
-                
-            i+=1
+        if the_end and (x,y) in bases:
+            for s in strings:
+                winning_string+=s
+            #logging.info(f'returning string {winning_string}')
+        else:
+            for s in strings:
+                if len(s)>max_len:
+                    max_len = len(s)
+                    index = i
+                    winning_string = s
+                    
+                i+=1
         
-        if len(strings)>0:
-            del strings[index]
-        
-        for s in strings:
-            for u, v in s:
-                board[u][v][3] = True
-                board[u][v][1] = 0
+            if len(strings)>0:
+                del strings[index]
+            
+            for s in strings:
+                for u, v in s:
+                    board[u][v][3] = True
+                    board[u][v][1] = 0
             
         winning_string.append((x,y))
-        #logging.info(f'returning string {winning_string}')
+        
         return winning_string
     
     while endpoints:
@@ -175,6 +183,8 @@ def movement_solver(ships_and_targets, game_map, block_fields):
         
     orders_list = []
     
+    hopeful_positions = []
+    
     for x in range(bx):
         for y in range(by):
             ship_id = board[x][y][0]
@@ -183,7 +193,8 @@ def movement_solver(ships_and_targets, game_map, block_fields):
             if not ship_id == -1:
                 orders_list.append(ship_dict[ship_id].move(move_array[move]))
                 position = to_tuple(ship_dict[ship_id].position.directional_offset(move_array[move]))
-                hopeful_positions.append((ship_id,position))
+                if not the_end:
+                    hopeful_positions.append((ship_id,position))
                 if not board[x][y][3]:
                     logging.info(f"what {x} {y}")
     
@@ -203,7 +214,7 @@ def desired_return_pathing(map,dropoffs):
     visited = set()
     
     for d in dropoffs:
-        q.put((0,0,d))
+        q.put((0,0,d,0))
     
     
 
@@ -215,7 +226,7 @@ def desired_return_pathing(map,dropoffs):
 
     while not q.empty():
         counter+=1
-        cost,distance,pos = q.get()
+        cost,distance,pos,move_direction = q.get()
         if pos in visited:
             continue
         
@@ -225,13 +236,15 @@ def desired_return_pathing(map,dropoffs):
         #logging.info(position)
         map_representation[position.x%bx][position.y%by] = (cost-map[position].halite_amount*0.1,
                                                         distance,
-                                                        map[position].halite_amount)
+                                                        map[position].halite_amount,
+                                                        move_direction)
         
         
         move_cost = ceil(map[position].halite_amount*0.1)
-        for x in position.get_surrounding_cardinals():
+        for i in range(4):
+            x = position.directional_offset(move_array[i+1])
             if (x.x%bx,x.y%by) not in visited:
-                q.put((cost+map[x].halite_amount*0.2+3.0,distance+1,(x.x%bx,x.y%by)))
+                q.put((cost+map[x].halite_amount*0.2+3.0,distance+1,(x.x%bx,x.y%by),(i+2)%4+1))
 
     logging.info("iterations {}".format(str(counter)))
     
@@ -250,6 +263,10 @@ while True:
     
     shipdict = {}
     
+    game_end = False
+    
+    if max_turns[bx]-game.turn_number<=bx/2:
+        game_end = True
     
     if game.turn_number%20 == 1 or refresh_return:
         refresh_return = False
@@ -322,7 +339,7 @@ while True:
         if game.turn_number < 250:
             try_spawn = True
     else:
-        selected_ship = random.choice(me.get_ships())
+        selected_ship = random.choice(list(me.get_ships()))
         
     ship_dropped = -1
     
@@ -343,19 +360,10 @@ while True:
         
         if returning == 1:
             
-            _,stop_distance,_ = return_pathing[ship.position.x%bx][ship.position.y%by]
+            _,_,_,direction = return_pathing[ship.position.x%bx][ship.position.y%by]
             move_value = [0]*5
             
-            for i in range(5):
-                a,b = move_array[i]
-                move_cost,distance,_ = return_pathing[(ship.position.x+a)%bx][(ship.position.y+b)%by]
-                
-                #that won't exactly work, but let's assume it does
-                
-                move_value[i] = max((ship.halite_amount-move_cost),0)*(stop_distance-distance)/(stop_distance+0.01) 
-            
-            if max(move_value)==0:
-                move_value[0] = 1
+            move_value[direction] = 1
             #logging.info("ship "+str(ship.id)+" returning in dir "+str(np.argmax(move_value)))
             orders_list.append((ship,move_value))
         else:
@@ -367,12 +375,10 @@ while True:
         try_spawn = False
         spawning_ship = True
     
-    
-    
     if spawning_ship:
         block_fields.append((me.shipyard.position.x,me.shipyard.position.y))
     
-    command_queue, hopeful_positions = movement_solver(orders_list,game_map,block_fields)
+    command_queue, hopeful_positions = movement_solver(orders_list,game_map,block_fields,game_end,dropoffs)
     
     pipe_out.write(str(ship_dropped))
     
