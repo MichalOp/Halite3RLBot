@@ -62,7 +62,7 @@ halite_per_player = total_halite/len(game.players)
 
 target_ships = halite_per_player//1000*0.5
 
-game.ready("MyPythonBot")
+game.ready("Reference")
 
 ships_last_cargo = {}
 
