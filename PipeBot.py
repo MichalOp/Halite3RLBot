@@ -34,6 +34,7 @@ pipe_in = open("/tmp/halite_commands"+pipe_id, 'r')
 pipe_out = open("/tmp/halite_data"+pipe_id, 'w')
 
 move_array = [(0,0),(1,0),(0,1),(-1,0),(0,-1)]
+max_turns = {32:400,40:425,48:450,56:475,64:500}
 
 game = hlt.Game()
 
@@ -378,7 +379,7 @@ while True:
     if spawning_ship:
         block_fields.append((me.shipyard.position.x,me.shipyard.position.y))
     
-    command_queue, hopeful_positions = movement_solver(orders_list,game_map,block_fields,game_end,dropoffs)
+    command_queue, hopeful_positions = movement_solver(orders_list,game_map,block_fields)
     
     pipe_out.write(str(ship_dropped))
     
