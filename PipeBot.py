@@ -20,18 +20,12 @@ from time import sleep,time
 from math import ceil
 from queue import PriorityQueue, Queue
 import numpy as np
-
+import pickle
 
 pipe_id = sys.argv[1]
 
-#print(pipe_id)
-#print(pipe_id)
-#print(pipe_id)
-#print(pipe_id)
-#exit()
-
-pipe_in = open("/tmp/halite_commands"+pipe_id, 'r')
-pipe_out = open("/tmp/halite_data"+pipe_id, 'w')
+pipe_in = open("/tmp/halite_commands"+pipe_id, 'rb')
+pipe_out = open("/tmp/halite_data"+pipe_id, 'wb')
 
 move_array = [(0,0),(1,0),(0,1),(-1,0),(0,-1)]
 max_turns = {32:400,40:425,48:450,56:475,64:500}
@@ -54,13 +48,41 @@ dropoffs.add(to_tuple(game.me.shipyard.position))
 # As soon as you call "ready" function below, the 2 second per turn timer will start.
 game.ready("MyPythonBot")
 
-
-
 ships_last_cargo = {}
 
-
-
 try_spawn = False
+
+def helper(x,y,board,the_end,bases):
+    #logging.info(f'running helper for endpoint {x} {y}')
+    strings = [helper(px,py,board,the_end,bases) for px,py in board[x][y][4]]
+    max_len = 0
+    i = 0
+    index = 0
+    winning_string = []
+    if the_end and (x,y) in bases:
+        for s in strings:
+            winning_string+=s
+        #logging.info(f'returning string {winning_string}')
+    else:
+        for s in strings:
+            if len(s)>max_len:
+                max_len = len(s)
+                index = i
+                winning_string = s
+                
+            i+=1
+    
+        if len(strings)>0:
+            del strings[index]
+        
+        for s in strings:
+            for u, v in s:
+                board[u][v][3] = True
+                board[u][v][1] = 0
+        
+    winning_string.append((x,y))
+    
+    return winning_string
 
 def movement_solver(ships_and_targets, game_map, block_fields, the_end = False, bases = None):
     board = [[[-1,0,0,False,[]] for x in range(game_map.width)]for y in range(game_map.height)]
@@ -140,44 +162,12 @@ def movement_solver(ships_and_targets, game_map, block_fields, the_end = False, 
             for px, py in potential_block:
                 board[px][py][3] = True
     
-    def helper(x,y):
-        #logging.info(f'running helper for endpoint {x} {y}')
-        strings = [helper(px,py) for px,py in board[x][y][4]]
-        max_len = 0
-        i = 0
-        index = 0
-        winning_string = []
-        if the_end and (x,y) in bases:
-            for s in strings:
-                winning_string+=s
-            #logging.info(f'returning string {winning_string}')
-        else:
-            for s in strings:
-                if len(s)>max_len:
-                    max_len = len(s)
-                    index = i
-                    winning_string = s
-                    
-                i+=1
-        
-            if len(strings)>0:
-                del strings[index]
-            
-            for s in strings:
-                for u, v in s:
-                    board[u][v][3] = True
-                    board[u][v][1] = 0
-            
-        winning_string.append((x,y))
-        
-        return winning_string
-    
     while endpoints:
         x,y = next(iter(endpoints))
         
         endpoints.remove((x,y))
         
-        winning_string = helper(x,y)[:-1]
+        winning_string = helper(x,y,board,the_end,bases)[:-1]
         
         for px, py in winning_string:
             board[px][py][3] = True
@@ -209,7 +199,7 @@ def desired_return_pathing(map,dropoffs):
     
     map_representation = [[None for x in range(by)]for y in range(bx)]
     
-    logging.info(len(map_representation))
+    #logging.info(len(map_representation))
     
     q = PriorityQueue()
     visited = set()
@@ -247,7 +237,7 @@ def desired_return_pathing(map,dropoffs):
             if (x.x%bx,x.y%by) not in visited:
                 q.put((cost+map[x].halite_amount*0.2+3.0,distance+1,(x.x%bx,x.y%by),(i+2)%4+1))
 
-    logging.info("iterations {}".format(str(counter)))
+    #logging.info("iterations {}".format(str(counter)))
     
     return map_representation
 
@@ -273,7 +263,9 @@ while True:
         refresh_return = False
         return_pathing = desired_return_pathing(game_map,dropoffs)
     
-    pipe_out.write(str(game.turn_number)+" "+str(me.halite_amount)+"\n")
+    status = (game.turn_number,me.halite_amount)
+    
+    ships_to_send = []
     
     for ship in me.get_ships():
         
@@ -288,40 +280,42 @@ while True:
         
         ships_last_cargo[ship.id] = ship.halite_amount
 
-        pipe_out.write("{} {} {} {} ".format(ship.id,ship.position.x%bx, ship.position.y%by, reward))
+        ships_to_send.append((ship.id,(ship.position.x%bx, ship.position.y%by), reward))
     
-    pipe_out.write("\n")
+    #pipe_out.write(pickle.dumps(ships))
+    
     #pipe_out.flush()
-    
+    board = np.zeros([bx,by,6])
     for i in range(bx):
         for j in range(by):
             
             cell = game_map[Position(i,j)]
             
-            s = ""
+            s = []
             
             if (i,j) in dropoffs:
-                s+="1000 "
+                s+=[1000]
             else:
-                s+="0 "
+                s+=[0]
             
             if cell.is_occupied:
                 ship = cell.ship
                 if ship.owner == me.id:
-                    s += "1000 0 "
+                    s += [1000,0]
                 else:
-                    s += "0 1000 "
+                    s += [0,1000]
                 
-                s += str(ship.halite_amount)+" "
+                s += [ship.halite_amount]
             else:
-                s += "0 0 0 "
+                s += [0,0,0]
                 
-            s += str(cell.halite_amount) + " "+str(return_pathing[i][j][0])
+            s += [cell.halite_amount] + [return_pathing[i][j][0]]
             
+            board[i,j] = s
             
-            pipe_out.write(s+"\n")
             #pipe_out.flush()
     
+    pickle.dump((status,ships_to_send,board),pipe_out)
     pipe_out.flush()
     
     ready_commands = []
@@ -344,12 +338,13 @@ while True:
         
     ship_dropped = -1
     
+    ships_data = pickle.load(pipe_in)
+    
     for i in range(len(me.get_ships())):
-        data = pipe_in.readline().strip().split()
-        
-        ship = shipdict[int(data[0])]
-        returning = int(data[1])
-        values = [float(x) for x in data[2:]]
+        s_id, data = ships_data[i]
+        ship = shipdict[s_id]
+        returning = data[0]
+        values = [float(x) for x in data[1:]]
         
         if selected_ship and ship.id == selected_ship.id and not game_map[ship.position].has_structure and real_halite_amount >= constants.DROPOFF_COST:
             ship_dropped = ship.id
@@ -381,14 +376,9 @@ while True:
     
     command_queue, hopeful_positions = movement_solver(orders_list,game_map,block_fields)
     
-    pipe_out.write(str(ship_dropped))
+    pickle.dump((ship_dropped,hopeful_positions),pipe_out)
     
-    pipe_out.write("\n")
-    
-    for s, p in hopeful_positions:
-        pipe_out.write("{} {} {} ".format(s,p[0], p[1]))
-    
-    pipe_out.write("\n")    
+    pipe_out.flush()
     
     if spawning_ship:
         command_queue.append(game.me.shipyard.spawn())
