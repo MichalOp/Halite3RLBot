@@ -6,6 +6,8 @@ import threading
 import signal
 import time
 
+import pickle
+
 from cv2 import imshow, waitKey
 
 max_turns = {32:400,40:425,48:450,56:475,64:500}
@@ -19,8 +21,8 @@ class player:
         self.money = 5000
         self.money_delta = 0
         #print("launching")
-        self.pipe_out = open("/tmp/halite_commands"+pipe_id, 'w')
-        self.pipe_in = open("/tmp/halite_data"+pipe_id, 'r')
+        self.pipe_out = open("/tmp/halite_commands"+pipe_id, 'wb')
+        self.pipe_in = open("/tmp/halite_data"+pipe_id, 'rb')
     
     def get_game_state(self):
         
@@ -30,44 +32,20 @@ class player:
         
         #while True:
         #    print(self.pipe_in.read())
-        
-        
-        status = self.pipe_in.readline().strip().split()
-        
-        if len(status) == 0:
+        try:
+            status, ships, board = pickle.load(self.pipe_in)
+        except EOFError:
             self.clear()
             return None
-        
-        #print(status)
-        if int(status[0]) == self.max_turn:
-            terminal = True
-            
         self.money_delta = int(status[1]) - self.money
         self.money = int(status[1])
         
-        my_ships = self.pipe_in.readline().strip()
-        my_ships = my_ships.split()
-        
-        ships = []
-        
-        for i in range(0,len(my_ships),4):
-            ships.append((int(my_ships[i]),(int(my_ships[i+1]),int(my_ships[i+2])),int(my_ships[i+3])))
-        
-        board_data = []
-        
         game_progress = float(status[0])/max_turns[self.map_size]*100
         
-        #print(game_progress)
-        
-        for i in range(self.map_size):
-            board_row = []
-            for j in range(self.map_size):
-                cell_info = self.pipe_in.readline().strip().split()
-                cell_info.append(game_progress)
-                board_row.append([float(x) for x in cell_info])
-            board_data.append(board_row)
+        pad = np.zeros([self.map_size,self.map_size,1]) + game_progress
+        board = np.concatenate([board,pad],2)
             
-        return ships, board_data
+        return ships, board
     
     def get_hopeful_positions(self):
         
@@ -75,33 +53,17 @@ class player:
             #self.clear()
             return None, -1
         
-        ship_dropped = self.pipe_in.readline().strip()
-        if len(ship_dropped)>0:
-            ship_dropped = int(ship_dropped)
-        else:
-            ship_dropped = -1
-        
-        my_ships = self.pipe_in.readline().strip()
-        my_ships = my_ships.split()
-        
-        ships = []
-        
-        for i in range(0,len(my_ships),3):
-            ships.append((int(my_ships[i]),(int(my_ships[i+1]),int(my_ships[i+2]))))
-            
+        try:
+            ship_dropped,ships = pickle.load(self.pipe_in)
+        except EOFError:
+            return None, -1
         return ships, ship_dropped
         
         
     def send_orders(self, orders_list):
         #self.pipe_out.flush()
         
-        for ship,priorities in orders_list:
-            #print(ship)
-            #print(priorities)
-            self.pipe_out.write(str(ship)+" ")
-            for x in priorities:
-                self.pipe_out.write(str(x)+" ")
-            self.pipe_out.write("\n")
+        pickle.dump(orders_list,self.pipe_out)
         
         self.pipe_out.flush()
         
