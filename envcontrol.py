@@ -8,6 +8,8 @@ import queue
 
 from cv2 import imshow, waitKey
 
+from looptime import add_t, reset_t, clear_t, log_by_tag
+
 gamma = 0.995
 gae_param = 0.96
 
@@ -28,7 +30,7 @@ class DataHolder():
         self.episode_reward = 0
         self.episode_max_ship_count = 0
         self.all_ships = {}
-
+    
     def step(self, board, ships, actions, probability, rewards, values,reward_sum, to_ignore):
         self.ships_to_ignore = self.ships_to_ignore.union(to_ignore)
         for ship in ships:
@@ -57,6 +59,8 @@ class DataHolder():
         self.episode_reward += reward_sum
 
     def end_episode(self):
+        
+        reset_t("building trajectories")
         
         M = self.map_size
         
@@ -103,6 +107,8 @@ class DataHolder():
             if len(ship_positions)>0:    
                 trajectories.append((board,ship_actions,ship_probabilities,ship_advantages,ship_values,ship_masks))
         
+        add_t("building trajectories")
+        
         return trajectories, self.episode_step_count, self.episode_reward,self.episode_max_ship_count
 
     def reset(self):
@@ -132,6 +138,9 @@ class EnvController():
         self.start()
         
     def start(self):
+        with open("timings"+str(self.map_size)+str(self.players_count),'w') as f:
+            log_by_tag(f)
+        clear_t()
         self.total_episodes.value = self.total_episodes.value+1
         print(self.total_episodes.value)
         save_replay = False
@@ -148,7 +157,7 @@ class EnvController():
             ships, board = self.state[i]
             
             out_ships = []
-            for ship_id, position, reward in ships:
+            for ship_id, position in ships:
                 out_ships.append((ship_id,position))
             
             out_state.append((out_ships,board))
@@ -158,25 +167,39 @@ class EnvController():
     
     def step(self,actions,probabilities,values):
         self.frame_counter+=1
+        reset_t("sending orders")
         for i in range(len(self.current_players)):
             self.players[self.current_players[i]].send_orders(actions[i])
+        add_t("sending orders")
         
+        reset_t("hopeful positions")
         hopeful_positions = []
         dropped = set()
-        for posgroup, drop in [self.players[p].get_hopeful_positions() for p in self.current_players]:
+        ship_parent = {}
+        
+        for p in self.current_players:
+            posgroup, drop = self.players[p].get_hopeful_positions()
             if not drop == -1:
                 dropped.add(drop)
             if not posgroup == None:
+                for s,_,_ in posgroup:
+                    ship_parent[s] = p
                 hopeful_positions+= posgroup
         
-        newstate = [self.players[p].get_game_state() for p in self.current_players]
         
+        
+        add_t("hopeful positions")
+        reset_t("getting game state")
+        newstate = [self.players[p].get_game_state() for p in self.current_players]
+        add_t("getting game state")
         marked_for_removal = []
         
         #print(hopeful_positions)
-        
+        reset_t("all this autism")
         possible_kills = {}
-        for s, pos in hopeful_positions:
+        ship_rewards = {}
+        for s, pos,r in hopeful_positions:
+            ship_rewards[s] = r
             if pos in possible_kills:
                 possible_kills[pos].append(s)
             else:
@@ -198,10 +221,11 @@ class EnvController():
             if len(possible_kills[pos])==2:
                 s1 = possible_kills[pos][0]
                 s2 = possible_kills[pos][1]
-                kills[s1] = s2
-                kills[s2] = s1
-                kill_values[s1] = ship_values[s2]
-                kill_values[s2] = ship_values[s1]
+                if not ship_parent[s1] == ship_parent[s2]:
+                    kills[s1] = s2
+                    kills[s2] = s1
+                    kill_values[s1] = ship_values[s2]
+                    kill_values[s2] = ship_values[s1]
         
         #for k in kills:
         #    print("killed "+str(k))
@@ -226,17 +250,17 @@ class EnvController():
             
                 ships, board = self.state[i]
                 newships,_ = newstate[i]
-                newships = {newship[0]:newship[2] for newship in newships}
+                newships = {newship[0]:newship[1] for newship in newships}
                 my_ships = []
                 rewards = []
                 act = []
                 probs = []
                 for x in range(len(ships)):
-                    ship,position,_ = ships[x]
+                    ship,position = ships[x]
                     reward = 0
-                    if ship in newships:
-                        reward = newships[ship]/10000
-                    else:
+                    if ship in ship_rewards:
+                        reward = ship_rewards[ship]/10000
+                    if not ship in newships:
                         if self.players_count == 2 and self.kills_matter.value > 0 and ship in kill_values:
                             reward = kill_values[ship]
                             print("rewarded "+ str(reward)+" for kill by" + str(ship))
@@ -247,7 +271,9 @@ class EnvController():
                 
                 
                 self.data_holders[p].step(np.asarray(board),my_ships,act,probabilities[i], rewards,values[i], sum(rewards)*10000, dropped)
-            
+        
+        
+        
         if (not len(marked_for_removal) == 0) and (not len(marked_for_removal) == self.players_count):
             with open("debugpleasework",'a') as f:
                 f.write("here we go\n")
@@ -265,7 +291,7 @@ class EnvController():
         else:
             self.state = newstate
 
-
+        add_t("all this autism")
     
     
                 
@@ -284,6 +310,7 @@ class TrajectoryGenerator:
         
         boards, ship_ids, positions = [],[],[]
         
+        
 
         state = self.env_controller.get_state()
         current_players = 0
@@ -300,6 +327,7 @@ class TrajectoryGenerator:
             ship_ids.append(s)
             positions.append(pos)
         
+        reset_t("await network")
         
         #print(np.asarray(boards).shape)
         padded = np.asarray(boards,dtype=np.float32)
@@ -309,13 +337,19 @@ class TrajectoryGenerator:
         self.task_queue.put((self.generator_id,current_players,padded))
         
         all_probs, all_values = self.pipe.recv()
+        
+        add_t("await network")
         #print(len(all_probs))
         #imshow("debug",all_values[0]/np.max(all_values[0]))
         #waitKey(1)
         
         actions,probabilities,state_values = [],[],[]
         
+        reset_t("retrieve actions")
+        
         for i in range(current_players):
+            
+            
             
             probs = all_probs[i]
             values = all_values[i]
@@ -351,7 +385,9 @@ class TrajectoryGenerator:
             actions.append(action)
             probabilities.append(result_probs)
             state_values.append(np.asarray(vals))
-            
+        
+        add_t("retrieve actions")
+        
         self.env_controller.step(actions,probabilities,state_values)
 
             
@@ -359,7 +395,9 @@ class TrajectoryGenerator:
     def generate_trajectories(self):
         
         while True:
+            reset_t("total")
             self.run_step()
+            add_t("total")
 
 def compute_task_batch(model, task_queue, workers_list):
     #print(started)

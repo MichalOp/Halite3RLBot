@@ -184,10 +184,13 @@ def movement_solver(ships_and_targets, game_map, block_fields, the_end = False, 
             if not ship_id == -1:
                 orders_list.append(ship_dict[ship_id].move(move_array[move]))
                 position = to_tuple(ship_dict[ship_id].position.directional_offset(move_array[move]))
-                if not the_end:
-                    hopeful_positions.append((ship_id,position))
-                if not board[x][y][3]:
-                    logging.info(f"what {x} {y}")
+                
+                reward = 0
+                
+                if position in bases:
+                    reward = ship_dict[ship_id].halite_amount - ceil(game_map[ship_dict[ship_id].position].halite_amount*0.1)
+                
+                hopeful_positions.append((ship_id,position,reward))
     
     return orders_list, hopeful_positions
 
@@ -269,18 +272,9 @@ while True:
     
     for ship in me.get_ships():
         
-        reward = 0
         shipdict[ship.id] = ship
-        
-        if ship.id not in ships_last_cargo:
-            ships_last_cargo[ship.id] = 0
-        
-        if to_tuple(ship.position) in dropoffs:
-            reward = ships_last_cargo[ship.id]
-        
-        ships_last_cargo[ship.id] = ship.halite_amount
 
-        ships_to_send.append((ship.id,(ship.position.x%bx, ship.position.y%by), reward))
+        ships_to_send.append((ship.id,(ship.position.x%bx, ship.position.y%by)))
     
     #pipe_out.write(pickle.dumps(ships))
     
@@ -334,7 +328,17 @@ while True:
         if game.turn_number < 250:
             try_spawn = True
     else:
-        selected_ship = random.choice(list(me.get_ships()))
+        max_dist = 0
+        
+        for s in list(me.get_ships()):
+            closest = 10000
+            for x,y in dropoffs:
+                p = Position(x,y)
+                dist = game_map.calculate_distance(s.position,p)
+                closest = min(closest,dist)
+            if closest>max_dist:
+                selected_ship = s
+                max_dist = closest
         
     ship_dropped = -1
     
@@ -345,6 +349,15 @@ while True:
         ship = shipdict[s_id]
         returning = data[0]
         values = [float(x) for x in data[1:]]
+        
+        if game_end and to_tuple(ship.position) in dropoffs:
+            move_value = [0]*5
+            
+            move_value[0] = 1
+            
+            orders_list.append((ship,move_value))
+            continue
+            
         
         if selected_ship and ship.id == selected_ship.id and not game_map[ship.position].has_structure and real_halite_amount >= constants.DROPOFF_COST:
             ship_dropped = ship.id
@@ -374,7 +387,7 @@ while True:
     if spawning_ship:
         block_fields.append((me.shipyard.position.x,me.shipyard.position.y))
     
-    command_queue, hopeful_positions = movement_solver(orders_list,game_map,block_fields)
+    command_queue, hopeful_positions = movement_solver(orders_list,game_map,block_fields,game_end,dropoffs)
     
     pickle.dump((ship_dropped,hopeful_positions),pipe_out)
     
