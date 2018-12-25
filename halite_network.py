@@ -19,7 +19,7 @@ class Model(tf.keras.Model):
         super(Model, self).__init__()
         #64 32
         
-        network_size = 20
+        network_size = 24
         
         self.input_conv1 = Conv2D(filters = network_size,kernel_size=[1,1],activation=None,padding="same")
         
@@ -31,15 +31,15 @@ class Model(tf.keras.Model):
             self.convs1.append(Conv2D(filters = network_size,kernel_size=[5,5],activation=None,padding="valid"))
             self.convs2.append(Conv2D(filters = network_size,kernel_size=[5,5],activation=None,padding="valid"))
         
-        self.outconv1 = Conv2D(filters = network_size,kernel_size=[3,3],activation=tf.nn.elu,padding="same")
+        self.outconv1 = Conv2D(filters = 64,kernel_size=[3,3],activation=tf.nn.elu,padding="same")
         
-        #self.outconv2 = Conv2D(filters = 24,kernel_size=[7,7],activation=tf.nn.elu,padding="same")
+        self.outconv2 = Conv2D(filters = 64,kernel_size=[1,1],activation=tf.nn.elu,padding="same")
 	
         self.pool = MaxPool2D()
         self.bn = BatchNormalization()
         
-        self.policy = Conv2D(filters = 6,kernel_size = [3,3],activation=tf.nn.softmax,padding="same",kernel_initializer = normalized_columns_initializer(0.001))
-        self.value= Conv2D(filters = 1,kernel_size = [3,3],activation=None,padding="same",kernel_initializer = normalized_columns_initializer(0.001))
+        self.policy = Conv2D(filters = 6,kernel_size = [1,1],activation=tf.nn.softmax,padding="same",kernel_initializer = normalized_columns_initializer(0.001))
+        self.value= Conv2D(filters = 1,kernel_size = [1,1],activation=None,padding="same",kernel_initializer = normalized_columns_initializer(0.001))
     
     def good_pad(self,layer,distance):
         size = layer.shape[1]
@@ -83,6 +83,7 @@ class Model(tf.keras.Model):
             result = result + old_result#tf.nn.elu(result+old_result)
         
         result = Dropout(drop)(result)
+        
         result = self.bn(result)
         
         if debug:
@@ -91,7 +92,8 @@ class Model(tf.keras.Model):
         
         result = self.outconv1(result)
         result = Dropout(drop)(result)
-        
+        result = self.outconv2(result)
+        result = Dropout(drop)(result)
         #result = self.pooling(result)
         policy = self.policy(result)
         

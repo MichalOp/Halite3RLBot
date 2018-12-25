@@ -39,7 +39,7 @@ dropoffs.add(to_tuple(game.me.shipyard.position))
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 import tensorflow as tf
-from halite_network_deploy import Model
+from halite_network_deploy_old import Model
 
 opts = tf.GPUOptions(per_process_gpu_memory_fraction=0.1)
 conf = tf.ConfigProto(gpu_options=opts)
@@ -47,7 +47,7 @@ tf.enable_eager_execution(config=conf)
 
 model = Model()
 
-model.load_weights('./weights/halite_model')
+model.load_weights('./weights_old/halite_model')
 
 _ = model(np.zeros([1,bx,by,7]))
 

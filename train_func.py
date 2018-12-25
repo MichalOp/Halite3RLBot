@@ -25,11 +25,11 @@ def train_func(model,boards,actions,probabilities,advantages,values,masks):
                                     tf.clip_by_value(ratios, 1/200, 200) * advantages,
                                     tf.clip_by_value(ratios, 1.0 - 0.1, 1.0 + 0.1)*advantages))
         
-        entropy_loss = tf.reduce_sum(policy * tf.log(policy + 1e-12))
+        entropy_loss = tf.reduce_sum(policy * tf.log(policy + 1e-12)*masks)
         
         regularization = tf.reduce_sum([tf.reduce_sum(tf.abs(x)) for x in model.variables])
         
-        total_loss = value_loss+policy_loss+0.0002*regularization + 0.000001*entropy_loss
+        total_loss = value_loss+policy_loss+0.0002*regularization + 0.0001*entropy_loss
         
         gradients,norm = tf.clip_by_global_norm(tape.gradient(total_loss,model.variables),2000)
         optimizer.apply_gradients(zip(gradients,model.variables))
