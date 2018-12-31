@@ -6,7 +6,7 @@ import queue
 from envcontrol import *
 from threading import Thread
 
-batchsize = 256
+batchsize = 128
 
 def generate(model, queues, trajectories, workers_list):
     
@@ -46,7 +46,7 @@ def train(model, trajectories, reward_queue, train_func, tf, kills_matter):
         while len(trajectories) < 12500:
             sleep(1.0)
         
-        if global_step>200:
+        if global_step>0:
             kills_matter.value = 1
         
         all_trajectories = old_trajectories[0]+trajectories +old_trajectories[1]+old_trajectories[2]
@@ -187,7 +187,7 @@ def run_training():
     tf.enable_eager_execution()
     
     model = Model()
-    model.load_weights('./weights/halite_model')
+    #model.load_weights('./weights/halite_model')
     
     trajectories = []
     

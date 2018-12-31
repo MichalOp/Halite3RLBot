@@ -31,9 +31,9 @@ class Model(tf.keras.Model):
             self.convs1.append(Conv2D(filters = network_size,kernel_size=[5,5],activation=None,padding="valid"))
             self.convs2.append(Conv2D(filters = network_size,kernel_size=[5,5],activation=None,padding="valid"))
         
-        self.outconv1 = Conv2D(filters = 64,kernel_size=[3,3],activation=tf.nn.elu,padding="same")
+        self.outconv1 = Conv2D(filters = 128,kernel_size=[3,3],activation=tf.nn.elu,padding="same")
         
-        self.outconv2 = Conv2D(filters = 64,kernel_size=[1,1],activation=tf.nn.elu,padding="same")
+        self.outconv2 = Conv2D(filters = 128,kernel_size=[1,1],activation=tf.nn.elu,padding="same")
 	
         self.pool = MaxPool2D()
         self.bn = BatchNormalization()

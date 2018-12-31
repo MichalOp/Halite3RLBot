@@ -453,12 +453,12 @@ def create_workers(queues):
     workers_list = []
     
     create_worker(workers_list,32,2,queues)
-    create_worker(workers_list,32,2,queues)
+    create_worker(workers_list,64,2,queues)
     #create_worker(workers_list,32,2,queues)
     #create_worker(workers_list,32,2,queues)
     create_worker(workers_list,48,2,queues)
     #create_worker(workers_list,48,2,queues)
-    create_worker(workers_list,48,2,queues)
+    create_worker(workers_list,64,4,queues)
     #create_worker(workers_list,32,4,queues)
     create_worker(workers_list,32,4,queues)
     create_worker(workers_list,48,4,queues)
