@@ -5,9 +5,6 @@ import scipy.signal
 from time import time,sleep
 from multiprocessing import Queue, Pipe, Process, Value
 import queue
-
-from cv2 import imshow, waitKey
-
 from looptime import add_t, reset_t, clear_t, log_by_tag
 
 gamma = 0.995
@@ -79,7 +76,6 @@ class DataHolder():
         pl = (64-M)//2
         
         for i in range(len(self.episode_buffer)):
-            #print(i)
             board = self.episode_buffer[i][0]
             ship_values = np.zeros([M,M,1])
             ship_advantages = np.zeros([M,M])
@@ -93,7 +89,6 @@ class DataHolder():
                     continue
                 position = self.episode_buffer[i][1][ship]
                 ship_positions.append(position)
-                #print(self.all_ships[ship])
                 ship_values[position] = [discounted_rewards[ship][i-self.all_ships[ship]]]
                 ship_advantages[position] = advantages[ship][i-self.all_ships[ship]]
                 ship_actions[position] = self.episode_buffer[i][2][ship]
@@ -101,9 +96,7 @@ class DataHolder():
                 ship_masks[position] = [1]
             
             board = np.asarray(board,dtype = np.float32)
-            #imshow("debug2",ship_masks)
-            #waitKey(20)
-            #print(ship_masks.shape)
+            
             if len(ship_positions)>0:    
                 trajectories.append((board,ship_actions,ship_probabilities,ship_advantages,ship_values,ship_masks))
         
@@ -153,7 +146,6 @@ class EnvController():
     def get_state(self):
         out_state = []
         for i in range(self.players_count):
-            #print(str(self.state[i][0])+" "+str(len(self.state[i][1])))
             ships, board = self.state[i]
             
             out_ships = []
@@ -212,8 +204,6 @@ class EnvController():
             for s, v in zip(ships,values[i]):
                 ship_values[s[0]] = v
         
-        #print(ship_values)
-        
         kills = {}
         kill_values = {}
         
@@ -226,9 +216,6 @@ class EnvController():
                     kills[s2] = s1
                     kill_values[s1] = ship_values[s2]
                     kill_values[s2] = ship_values[s1]
-        
-        #for k in kills:
-        #    print("killed "+str(k))
         
         for i in range(len(self.current_players)):
             
@@ -264,7 +251,7 @@ class EnvController():
                         if self.players_count == 2 and self.kills_matter.value > 0 and ship in kill_values:
                             reward = kill_values[ship]
                             print("rewarded "+ str(reward)+" for kill by" + str(ship))
-                    #probs.append(probabilities[i][x])
+
                     my_ships.append((ship,position))
                     rewards.append(reward)
                     act.append(actions[i][x][1])
@@ -272,21 +259,12 @@ class EnvController():
                 
                 self.data_holders[p].step(np.asarray(board),my_ships,act,probabilities[i], rewards,values[i], sum(rewards)*10000, dropped)
         
-        
-        
-        if (not len(marked_for_removal) == 0) and (not len(marked_for_removal) == self.players_count):
-            with open("debugpleasework",'a') as f:
-                f.write("here we go\n")
-                import datetime
-                f.write(str(datetime.datetime.now())+'\n')
-        
         for x in marked_for_removal:
             i = self.current_players.index(x)
             del newstate[i]
             self.current_players.remove(x)
         
         if len(self.current_players) == 0:
-            #print("ended, restarting")
             self.start()
         else:
             self.state = newstate
@@ -339,9 +317,6 @@ class TrajectoryGenerator:
         all_probs, all_values = self.pipe.recv()
         
         add_t("await network")
-        #print(len(all_probs))
-        #imshow("debug",all_values[0]/np.max(all_values[0]))
-        #waitKey(1)
         
         actions,probabilities,state_values = [],[],[]
         
@@ -353,10 +328,7 @@ class TrajectoryGenerator:
             
             probs = all_probs[i]
             values = all_values[i]
-            #probs = probs.numpy()
-            #values = values.numpy()
-            #print(values)
-            #print(probs)
+            
             action = []
             result_probs = []
             pos = positions[i]
@@ -380,8 +352,6 @@ class TrajectoryGenerator:
             for x in range(len(ship_ids[i])):
                 action[x] = (ship_ids[i][x],action[x])
             
-            #print(action)
-            #print(result_probs)
             actions.append(action)
             probabilities.append(result_probs)
             state_values.append(np.asarray(vals))
@@ -389,8 +359,6 @@ class TrajectoryGenerator:
         add_t("retrieve actions")
         
         self.env_controller.step(actions,probabilities,state_values)
-
-            
     
     def generate_trajectories(self):
         
@@ -400,7 +368,6 @@ class TrajectoryGenerator:
             add_t("total")
 
 def compute_task_batch(model, task_queue, workers_list):
-    #print(started)
     tasks = []
     ids = []
     player_counts = []
@@ -427,11 +394,6 @@ def compute_task_batch(model, task_queue, workers_list):
             policy.append(p.numpy())
             value.append(v.numpy())
         
-        #tasks = np.concatenate(tasks,0)
-        #print(tasks.shape)
-        #print(model)
-        #input()
-        
         iterator = 0
         
         for i in range(len(ids)):
@@ -454,12 +416,8 @@ def create_workers(queues):
     
     create_worker(workers_list,32,2,queues)
     create_worker(workers_list,64,2,queues)
-    #create_worker(workers_list,32,2,queues)
-    #create_worker(workers_list,32,2,queues)
     create_worker(workers_list,48,2,queues)
-    #create_worker(workers_list,48,2,queues)
     create_worker(workers_list,64,4,queues)
-    #create_worker(workers_list,32,4,queues)
     create_worker(workers_list,32,4,queues)
     create_worker(workers_list,48,4,queues)
     

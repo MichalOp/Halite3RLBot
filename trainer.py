@@ -20,7 +20,6 @@ def generate(model, queues, trajectories, workers_list):
             
             while True:
                 trajectory = None
-                #print(trajectory_queue.qsize())
                 try:
                     trajectory = trajectory_queue.get(timeout = 0.001)
                 except queue.Empty:
@@ -156,7 +155,6 @@ def train(model, trajectories, reward_queue, train_func, tf, kills_matter):
         print("-------------------------------------------------------------------")
         print(global_step)
         print("-------------------------------------------------------------------")
-        #print("time: "+str(time()-old_t))
         print("preparation: "+str(prep))
         print("optimizing: "+str(opt))
     
@@ -204,19 +202,7 @@ def run_training():
 if __name__ == "__main__":
 
     run_training()
-#trajectories, values = generator.generate_trajectories(2000)
 
-
-#for t in trajectories:
-#    for x in t[1:]:
-#        print(x)
-
-
-
-#print(trajectories)
-
-#print(values)
-            
             
             
             

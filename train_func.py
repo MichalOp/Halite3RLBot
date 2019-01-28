@@ -10,7 +10,7 @@ def train_func(model,boards,actions,probabilities,advantages,values,masks):
 
     with tf.GradientTape() as tape:
                 
-        policy, value = model(boards)
+        policy, value = model(boards,drop = 0.5)
         
         total_loss = 0
 

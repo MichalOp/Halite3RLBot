@@ -214,10 +214,6 @@ def desired_return_pathing(map,dropoffs):
 
     counter = 0
 
-    #logging.info("assigned targets:")
-
-    #old_t = time()
-
     while not q.empty():
         counter+=1
         cost,distance,pos,move_direction = q.get()
@@ -373,7 +369,6 @@ while True:
             move_value = [0]*5
             
             move_value[direction] = 1
-            #logging.info("ship "+str(ship.id)+" returning in dir "+str(np.argmax(move_value)))
             orders_list.append((ship,move_value))
         else:
             orders_list.append((ship,values))
@@ -397,5 +392,4 @@ while True:
         command_queue.append(game.me.shipyard.spawn())
     
     command_queue += ready_commands
-    # Send your moves back to the game environment, ending this turn.
     game.end_turn(command_queue)
