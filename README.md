@@ -2,7 +2,7 @@
 
 ### RL bot for Halite 3 competition
 
-The code in this repo is likely quite awful, as it wasn't really intended to be read by anyone. But if any part of it is of any use to you, feel free to copy it.
+The code in this repo is likely quite awful, as it wasn't really intended to be read by anyone.
 
 To train a network yourself, you'll need tensorflow 1.12 with CUDA support (and possibly some other libraries) and as good GPU as possible (I was using GTX 1080Ti). To start training, run *trainer.py*. Tensorboard plots will be located in *training* folder. If you don't have enough VRAM, decrease batch_size in *trainer.py*.
 
