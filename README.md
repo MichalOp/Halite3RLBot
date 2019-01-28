@@ -1,6 +1,6 @@
-#Halite3RLbot
+# Halite3RLbot
 
-###RL bot for Halite 3 competition
+### RL bot for Halite 3 competition
 
 The code in this repo is likely quite awful, as it wasn't really intended to be read by anyone. But if any part of it is of any use to you, feel free to copy it.
 
