@@ -34,7 +34,7 @@ The core algorithm
 ---
 Training data is collected through self-play by several worker processes. Each of the workers is controlling agents playing a single game, and collecting trajectories for the training algorithm. There is also a single thread that is responsible for running and training the network - workers send input data for the network thread which then runs network on it and sends it back to the workers. That means there is only one network loaded on the GPU memory, which in turn allows for using bigger batch sizes during training. 
 
-I used Proximal Policy Optimization as a training algorithm due to it's stability. I experimented with Deep Q-learning, but it wasn't as effective.
+I used Proximal Policy Optimization as a training algorithm due to its stability. I experimented with Deep Q-learning, but it wasn't as effective.
 
 To reduce amount of compute needed, I used a fully convolutional architecture where single network computes policy distribution and value estimates for every ship on the map at the same time. The network is 'looped' at the edges, so it sees the situation behind the edge of the map. 
 
@@ -56,7 +56,7 @@ I think my hypothesis is also supported by the fact that my Q-learning agents (n
 
 Scripted parts
 ---
-Ships and dropoffs are built using a scripted policy. Amount of ships to build is calculated based on the halite on the map divided by the number of players, and dropoff is built at the location furthest away from any other dropoff after every 15 ships are built. 
+Ships and dropoffs are built using a scripted policy. Amount of ships to build is calculated based on the halite on the map divided by the number of players, and dropoff is built at ship that is currently furthest away from any other dropoff after every 15 ships are built. 
 
 There is also a movement solver that prevents ships from colliding. It leverages the fact that every ship choses a single direction it wants to move in, and then computes the longest chains of ships that can be moved by constructing a directed graph and seeking cycles and longest paths in it.
 
